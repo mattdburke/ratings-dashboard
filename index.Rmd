@@ -4,6 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
+    runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -13,9 +14,13 @@ library(flexdashboard)
 Inputs {.sidebar}
 -----------------------------------------------------------------------
 
-This dashboard is based on the model from [Klusak et al (2023)](https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2023.4869) published in Management Science. M. Agarwala, P. Klusak, and M. Burke acknowledge funding from the International Network for Sustainable Financial Policy Insights, Research and Exchange (INSPIRE). See INSPIRE funding information [here](https://inspiregreenfinance.org/publications/rising-temperatures-falling-ratings-the-effect-of-climate-change-on-sovereign-creditworthiness/). M. Agarwala also acknowledges funding from The Wealth Economy Project. 
+```{r}
+ selectInput("scenario", label = h3("Scenario selector"), 
+    choices = list("RCP 8.5 2050" = "Kahn_8.5_2050", "RCP 8.5 2100" = "Kahn_8.5_2100", "RCP 2.6 2100" = "Kahn_2.6_2100"), 
+    selected = "Kahn_8.5_2050")
+```
 
-![INSPIRE LOGO](https://www.inspiregreenfinance.org/wp-content/themes/niftic/meta/image.png)
+These scenarios are based on the results given by [Kahn et al (2021)](https://www.sciencedirect.com/science/article/abs/pii/S0140988321004898). In this version, we use the scenarios that assume a 30-year adaptation cycle. 
 
 
 Column {data-width=550}
@@ -29,43 +34,50 @@ library(rjson)
 library(shiny)
 library(countrycode)
 
-Kahn_2050_8.5 <- read.csv("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/Kahn_8.5_2050_estimates.csv")
+renderPlotly(
+  {
+    plot_ly(
+      data = read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv")), 
+      type = "choropleth",
+      locations = countrycode(read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv"))$ISO2, origin = "iso2c", destination = "iso3c"),
+      z = read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv"))$actual - read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv"))$est,
+      text = read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv"))$country,
+      colorscale = "sunset"
+    )
+  }
+)
 
-Kahn_2050_8.5$ISO3 <- countrycode(Kahn_2050_8.5$ISO2, origin = "iso2c", destination = "iso3c")
-Kahn_2050_8.5$downgrade_size <- Kahn_2050_8.5$actual - Kahn_2050_8.5$est
+#Kahn_2050_8.5 <- read.csv("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/Kahn_8.5_2050_estimates.csv")
+#Kahn_2050_8.5$ISO3 <- countrycode(Kahn_2050_8.5$ISO2, origin = "iso2c", destination = "iso3c")
+#Kahn_2050_8.5$downgrade_size <- Kahn_2050_8.5$actual - Kahn_2050_8.5$est
+#fig <- plot_ly(Kahn_2050_8.5, type='choropleth', locations=Kahn_2050_8.5$ISO3, z=Kahn_2050_8.5$downgrade_size, text=Kahn_2050_8.5$country, colorscale="Blues")
 
-
-fig <- plot_ly(Kahn_2050_8.5, type='choropleth', locations=Kahn_2050_8.5$ISO3, z=Kahn_2050_8.5$downgrade_size, text=Kahn_2050_8.5$country, colorscale="Blues")
-
-fig
+#fig
 
 ```
 
 Column {data-width=450}
 -----------------------------------------------------------------------
 
-### Scenario selector
+### Rising Temperatures - Falling Ratings
 
-```{r}
- selectInput("clusterNum", label = h3("Scenario selector"), 
-    choices = list("RCP 8.5 2050" = 1, "RCP 8.5 2100" = 2, "RCP 2.6 2100" = 3), 
-    selected = 1)
-```
+This dashboard is based on the model from [Klusak et al (2023)](https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2023.4869) published in Management Science. M. Agarwala, P. Klusak, and M. Burke acknowledge funding from the International Network for Sustainable Financial Policy Insights, Research and Exchange (INSPIRE). See INSPIRE funding information [here](https://inspiregreenfinance.org/publications/rising-temperatures-falling-ratings-the-effect-of-climate-change-on-sovereign-creditworthiness/). M. Agarwala also acknowledges funding from The Wealth Economy Project. 
 
-
+-----------------------------------------------------------------------
 
 ### Country-level actual ratings vs. simulated by scenario
 
 ```{r}
 # volcano is a numeric matrix that ships with R
-
-
-Kahn_2050_8.5 <- read.csv("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/Kahn_8.5_2050_estimates.csv")
-
-Kahn_2050_8.5$downgrade_size <- Kahn_2050_8.5$actual - Kahn_2050_8.5$est
-
-fig <- plot_ly(data = Kahn_2050_8.5, x = ~actual, y = ~est, text = ~paste("Country: ", country), color = ~(downgrade_size), size =  ~(downgrade_size))
-fig <- fig %>% layout(showlegend = FALSE)
-
-fig
+renderPlotly(
+  {
+    plot_ly(
+      data = read.csv(paste0("https://raw.githubusercontent.com/mattdburke/climate-ratings/main/output/",input$scenario,"_estimates.csv")), 
+      x = ~actual, 
+      y = ~est, 
+      text = ~paste("Country: ", country), 
+      color = ~(actual-est), size =  ~(actual-est)
+    )
+  }
+)
 ```
